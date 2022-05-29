@@ -1,0 +1,14 @@
+<div class="session-container">
+  <div class="running">
+    <p>Checkouts Produced: </p>
+    <p style="color: green;" >{{sessions.length}}</p>
+  </div> 
+</div>
+<div class="running-sessions">
+  <div class="session-row" *ngFor="let session of sessions; index as i">
+    <p>{{session.id}}</p>
+    <p *ngIf="!session.didOpenCheckout" style="color: green;">{{session.status}}</p>
+    <p *ngIf="session.didOpenCheckout" style="color: red;">CLEAR!</p>
+    <button *ngIf="session.shouldCheckout && !session.didOpenCheckout" class="btn btn-primary" (click)="openCheckout(session)" >Open!</button>
+  </div>
+</div>

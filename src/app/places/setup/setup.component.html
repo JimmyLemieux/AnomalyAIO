@@ -1,0 +1,41 @@
+<div class="form-container">
+  <form [formGroup]="setupForm" (ngSubmit)="submit()" enctype="multipart/form-data">
+    <div class="setup-container">
+      <label for="puser">Proxy Username: </label>
+      <div class="input-group mb-3">
+        <input type="text" class="form-control" id="puser" aria-label="Sizing example input" aria-describedby="inputGroup-sizing-default" formControlName="proxyUserName">
+      </div>    
+    
+      <label for="ppass">Proxy Password: </label>
+      <div class="input-group mb-3">
+        <input type="text" class="form-control" id="ppass" aria-label="Sizing example input" aria-describedby="inputGroup-sizing-default" formControlName="proxyPassword">
+      </div>   
+      
+      <label for="pdns">Proxy DNS: </label>
+      <div class="input-group mb-3">
+        <input type="text" class="form-control" id="pdns" aria-label="Sizing example input" aria-describedby="inputGroup-sizing-default" formControlName="proxyDNS">
+      </div>   
+    
+      <label for="threads">Number of Threads: </label>
+      <div class="input-group mb-3">
+        <input type="text" class="form-control" id="threads" aria-label="Sizing example input" aria-describedby="inputGroup-sizing-default" formControlName="threads">
+      </div>
+
+      <label for="account">Upload Account CSV: </label>
+      <input name="file" type="file" id="account"
+      (change)="onFileChange($event)">
+
+      <div class="form-buttons">
+        <div class="submit-form">
+          <button [disabled]="!isFormValid()" class="btn btn-primary" type="submit">Start</button> 
+        </div>
+  
+        <div class="submit-form" *ngIf="setupComplete">
+          <button class="btn btn-danger" (click)="kill()" >Kill All</button> 
+        </div>
+      </div>
+
+      <!-- <button (click)="test()">TEST</button>  -->
+    </div>
+  </form>
+</div>

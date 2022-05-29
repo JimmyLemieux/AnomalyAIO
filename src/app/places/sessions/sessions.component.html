@@ -1,0 +1,16 @@
+<div class="session-container">
+  <div class="queue">
+    <p>Sessions Queued:   </p>
+    <p style="color: orange;">{{sessions_queued}}</p>
+  </div>
+  <div class="running">
+    <p>Sessions Running: </p>
+    <p style="color: green;" >{{sessions_running}}</p>
+  </div> 
+</div>
+<div class="running-sessions">
+  <div class="session-row" *ngFor="let session of sessions; index as i">
+    <p>{{session.id}}</p>
+    <p style="color: green;">{{session.status}}</p>
+  </div>
+</div>
