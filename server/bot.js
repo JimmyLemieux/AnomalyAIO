@@ -19,7 +19,7 @@ const {proxyRequest} = require('puppeteer-proxy');
 const timer = ms => new Promise(res => setTimeout(res, ms))
 const CLUSTER_TIMEOUT = 1000000 * 150;
 const product_id = 41;
-const cookie_domain = ".droppp.io";
+const cookie_domain = "droppp.io";
 
 module.exports = {
   session: BotSessions,
