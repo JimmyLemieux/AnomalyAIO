@@ -14,7 +14,7 @@ export class SetupComponent implements OnInit {
   setupComplete: boolean = false;
 
   setupForm = new FormGroup({
-    proxyUserName: new FormControl('geonode_7Hbuw9KHL0-autoReplace-True', Validators.required),
+    proxyUserName: new FormControl('geonode_7Hbuw9KHL0-country-US-autoReplace-True', Validators.required),
     proxyPassword: new FormControl('fc96bf48-5382-4176-8e51-299191d4ff9d', Validators.required),
     proxyDNS: new FormControl('premium-residential.geonode.com', Validators.required),
     threads: new FormControl('10000', Validators.required),

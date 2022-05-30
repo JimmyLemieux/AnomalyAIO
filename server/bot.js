@@ -35,11 +35,46 @@ function calculateConcurrency(threads) {
   return !isNaN(threads) ? +threads : 1000;
 }
 
+async function dropppLoginCookies(email, password) {
+  var proxyUrl = getProxyUrl();
+  const proxyAgent = new HttpsProxyAgent(proxyUrl);
+  
+  var form_data = new FormData();
+  form_data.append('email', email);
+  form_data.append('password', password);
+  
+  var config = {
+    method: 'POST',
+    agent: proxyAgent,
+    headers: { 
+      ...form_data.getHeaders(),
+      "Access-Control-Allow-Origin": "*",
+      'Origin': 'https://droppp.io',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36'
+    },
+    body : form_data
+  };
+
+  let url = "https://api.droppp.io/v1/user/login";
+  let resp = await fetch(url, config);
+  let resp_data = await resp.json();
+  
+  await timer(500);
+
+  let access_token = resp_data.token.access_token;
+  let refresh_token = resp_data.token.refresh_token;
+  let access_expire = resp_data.token.expires_in;
+  let refresh_expire = resp_data.token.refresh_token_expires_in;
+
+  let page_cookies = createAccessTokenCookies(access_token, access_expire, refresh_token, refresh_expire, "droppp.io");
+  return page_cookies;
+}
+
 function getProxyUrl() {
-  var username = 'geonode_7Hbuw9KHL0-country-US-autoReplace-True';
+  var username = 'geonode_7Hbuw9KHL0-autoReplace-True';
   var password = 'fc96bf48-5382-4176-8e51-299191d4ff9d';
   var GEONODE_DNS = 'premium-residential.geonode.com';
-  var GEONODE_PORT = 9002;
+  var GEONODE_PORT = 9083;
   var proxyUrl = "http://" + username + ":" + password + "@" + GEONODE_DNS + ":" + GEONODE_PORT;
   return proxyUrl;
 }
@@ -124,47 +159,24 @@ async function BotSessions(data) {
     let index = await qArray.findIndex(x => x.id === data.id);
     qArray[index].page = page;
     await page.setDefaultNavigationTimeout(0);
-
-    var proxyUrl = getProxyUrl();
-    const proxyAgent = new HttpsProxyAgent(proxyUrl);
+    await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36');
     
-    var form_data = new FormData();
-    form_data.append('email', data.Email);
-    form_data.append('password', data.Password);
-    
-    var config = {
-      method: 'POST',
-      agent: proxyAgent,
-      headers: { 
-        ...form_data.getHeaders(),
-        "Access-Control-Allow-Origin": "*",
-        'Origin': 'https://droppp.io',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36'
-      },
-      body : form_data
-    };
+    qArray[index].sort = -2;
+    qArray[index].status = "Attempting Login...";
+    let loginCookies = await dropppLoginCookies(data.Email, data.Password);
+    let loginCookiesJSON = JSON.parse(JSON.stringify(loginCookies));
+    qArray[index].sort = -1;
+    qArray[index].status = "Logged In!";
 
-    let url = "https://api.droppp.io/v1/user/login";
-    let resp = await fetch(url, config);
-    let resp_data = await resp.json();
-    
-    await timer(500);
 
-    let access_token = resp_data.token.access_token;
-    let refresh_token = resp_data.token.refresh_token;
-    let access_expire = resp_data.token.expires_in;
-    let refresh_expire = resp_data.token.refresh_token_expires_in;
-
-    let page_cookies = createAccessTokenCookies(access_token, access_expire, refresh_token, refresh_expire, cookie_domain);
+    qArray[index].sort = 0;
+    qArray[index].status = "Setting Login Cookies...";
+    await page.setCookie(...loginCookiesJSON);
     
-    await useProxy(page, proxyUrl);
+    await useProxy(page, getProxyUrl());
     qArray[index].sort = 1;
     qArray[index].status = "Started Proxy Connection...";
-    let cookie_json = JSON.parse(JSON.stringify(page_cookies));
-    qArray[index].sort = 2;
-    qArray[index].status = "Setting page cookies...";
-    await page.setCookie(...cookie_json);
-    await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36');
+    
   
     qArray[index].sort = 3;
     qArray[index].status = "Entering the queue";
@@ -185,6 +197,7 @@ async function BotSessions(data) {
     // This is where we will pring out the checkout link!
     qArray[index].sort = 8;
     qArray[index].status = "🎉  CHECKOUT! 🎉";
+
     let checkout_page_cookies = await page.cookies();
     qArray[index].cookies = checkout_page_cookies;
   });
@@ -198,19 +211,21 @@ async function BotSessions(data) {
       "id": data.id,
       "type": "create-session", "status": data.Status,
       "info": {"email": data.Email, "password": data.Password},
-      "sort": 0});
+      "sort": -3});
   });
 
   let workerCount = 0;
   fs.createReadStream('./uploads/users.csv')
   .pipe(csv())
   .on('data', async function(row) {
-      console.log(row);
-      cluster.queue({ "id": ++workerCount, "Email": row.Email, "Password": row.Password, "Status": "Worker Queued" })
+    for (let i = 0;i<10;i++) {
+      await cluster.queue({ "id": ++workerCount, "Email": row.Email, "Password": row.Password, "Status": "Worker Queued"})
         .catch((err) => {
           console.err("Error: with queuing task!");
           console.err(err);
         });
+      await timer(2000);
+    }
     });
 
   await cluster.idle();
@@ -256,11 +271,22 @@ async function testingLaunch(data) {
 
   await cluster.task(async ({page, data}) => {
     let index = await qArray.findIndex(x => x.id === data.id);
+    qArray[index].status = "Attempting Login...";
+    console.log(data);
+    let loginCookies = await dropppLoginCookies(data.Email, data.Password);
+    let loginCookiesJSON = JSON.parse(JSON.stringify(loginCookies));
+    console.log(loginCookiesJSON);
+    qArray[index].status = "Logged In!";
     qArray[index].page = page;
     await page.setDefaultNavigationTimeout(0);
+    qArray[index].sort = 0;
+    qArray[index].status = "Setting Login Cookies...";
+    await page.setCookie(...loginCookiesJSON);
 
     await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36');
-    await page.goto("https://droppp.io/");
+    qArray[index].status = "Setting Proxy...";
+    await useProxy(page, getProxyUrl());
+    await page.goto("https://droppp.io/inventory/");
     qArray[index].status = "ON DROPPP!";
     await timer(2000);
     qArray[index].sort = 1;
@@ -270,16 +296,17 @@ async function testingLaunch(data) {
     qArray[index].status = "🎉  CHECKOUT! 🎉";
     const page_cookies = await page.cookies();
 
-    qArray[index].cookies = createAccessTokenCookies('James', 10, 'Lemieux', 10, cookie_domain);
+    qArray[index].cookies = page_cookies;
 
   });
   
   cluster.on('queue', (data) => {
+    console.log("q");
     qArray.push({
       "id": data.id,
       "type": "create-session", "status": data.Status,
       "info": {"email": data.Email, "password": data.Password},
-      "sort": 0});
+      "sort": -1});
   });
 
   cluster.on('taskerror', (err, data, willRetry) => {
@@ -289,12 +316,15 @@ async function testingLaunch(data) {
   let workerCount = 0;
   fs.createReadStream('./uploads/users.csv')
   .pipe(csv())
-  .on('data', function (row) {
-      cluster.queue({ "id": ++workerCount, "Email": row.Email, "Password": row.Password, "Status": "Worker Queued" })
-        .catch((err) => {
-          console.err("Error: with queuing task!");
-          console.err(err);
-        });
+  .on('data', async function (row) {
+      console.log(row.Email + " " + row.Password);
+      for (let i = 0;i<10;i++) {
+        await cluster.queue({ "id": ++workerCount, "Email": row.Email, "Password": row.Password, "Status": "Worker Queued"})
+          .catch((err) => {
+            console.err("Error: with queuing task!");
+            console.err(err);
+          });
+      }
     });
 
   await cluster.idle();
