@@ -11,14 +11,19 @@ function createWindow() {
     width: 1200,
     height: 700,
   });
-  win.loadFile('./dist/index.html');
+
+  // This might need to change later
+  if (process.platform === 'darwin') {
+    win.loadFile('./dist/index.html');
+  } else {
+    win.loadFile('C:\\Users\\manraj\\Documents\\anomaly\\AnomalyAIO\\dist\\index.html');
+  }
   // const view = new BrowserView();
   // win.setBrowserView(view);
   // view.setBounds({ x: 0, y: 0, width: 600, height: 600 })
   // view.webContents.loadURL(`file://${__dirname}/dist/index.html`);
    
   // win.webContents.openDevTools(); 
-
 
   win.on('closed', () => {
     win = null;
