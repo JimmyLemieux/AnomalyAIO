@@ -24,12 +24,6 @@ app.get('/', async (req, res) => {
   res.end();
 })
 
-app.post('/test', async(req, res) => {
-//  console.log('test');
-  await bot.session(req.body, res); 
-  res.end();
-});
-
 app.post('/checkout', async(req, res) => {
   await bot.checkout(req.body.session);
   res.send(JSON.stringify({status: 200}));
@@ -41,14 +35,12 @@ app.post('/setup', async (req, res) => {
   await uploadFile.mv('uploads/' + 'users.csv', (error) => {
     if (error) {
       console.log('Some error went on!');
-    } else {
     }
   });
 
   let data = JSON.parse(req.body.data);
-  await bot.test(data, res);
+  await bot.session(data);
   res.send(JSON.stringify({status: "start"}));
-  res.end();
 });
 
 app.get('/status', async (req, res) => {
@@ -65,5 +57,5 @@ app.get('/kill', async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
+  console.log(`Anomaly is running on ${port}...`)
 })

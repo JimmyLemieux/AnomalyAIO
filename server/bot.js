@@ -17,9 +17,11 @@ const { randomInt } = require('crypto');
 const {proxyRequest} = require('puppeteer-proxy');
 
 const timer = ms => new Promise(res => setTimeout(res, ms))
+const CLUSTER_TIMEOUT = 100000000 * 150;
+const product_id = 41;
 
 module.exports = {
-  session: testSession,
+  session: BotSessions,
   checkout: launchCheckoutPage,
   test: testingLaunch,
   getSessions: returnSessions,
@@ -28,6 +30,9 @@ module.exports = {
 
 var qArray = [];
 
+function calculateConcurrency(threads) {
+  return !isNaN(data.threads) ? +threads : 1000;
+}
 
 function getProxyUrl() {
   var username = 'geonode_7Hbuw9KHL0-country-US-autoReplace-True';
@@ -36,6 +41,41 @@ function getProxyUrl() {
   var GEONODE_PORT = 9002;
   var proxyUrl = "http://" + username + ":" + password + "@" + GEONODE_DNS + ":" + GEONODE_PORT;
   return proxyUrl;
+}
+
+function createAccessTokenCookies(accessToken, accessExpire, refreshToken, refreshExpire) {
+  return [
+    {
+      "name": "token",
+      "value": accessToken,
+      "domain": "droppp.io",
+      "path": "/",
+      "expires": Date.now() + accessExpire,
+      "size": 69,
+      "httpOnly": false,
+      "secure": false,
+      "session": false,
+      "priority": "Medium",
+      "sameParty": false,
+      "sourceScheme": "Secure",
+      "sourcePort": 443
+    },
+    {
+      "name": "refresh_token",
+      "value": refreshToken,
+      "domain": "droppp.io",
+      "path": "/",
+      "expires": Date.now() + refreshExpire,
+      "size": 77,
+      "httpOnly": false,
+      "secure": false,
+      "session": false,
+      "priority": "Medium",
+      "sameParty": false,
+      "sourceScheme": "Secure",
+      "sourcePort": 443
+    }
+  ];
 }
 
 // TODO!
@@ -48,7 +88,7 @@ async function killAllSessions() {
 }
 
 // ACTUAL BOT
-async function testSession(reqData, res) {
+async function BotSessions(data) {
   puppeteer.use(
     RecaptchaPlugin({
       provider: {
@@ -67,22 +107,25 @@ async function testSession(reqData, res) {
         '--no-sandbox',
         '--disable-setuid-sandbox'],
       },
-    concurrency: Cluster.CONCURRENCY_CONTEXT,
-    maxConcurrency: reqData.concurrency,
+    concurrency: Cluster.CONCURRENCY_PAGE,
+    maxConcurrency: calculateConcurrency(data.threads),
     monitor: false,
-    timeout: 100000000
+    timeout: CLUSTER_TIMEOUT
   });
 
-  cluster.task(async ({page, data: test_url}) => {
-    var username = 'geonode_7Hbuw9KHL0-country-US-autoReplace-True';
-    var password = 'fc96bf48-5382-4176-8e51-299191d4ff9d';
-    var GEONODE_DNS = 'premium-residential.geonode.com';
-    var GEONODE_PORT = 9005;
-    var proxyUrl = "http://" + username + ":" + password + "@" + GEONODE_DNS + ":" + GEONODE_PORT;
+  cluster.task(async ({page, data}) => {
+    
+    let index = await qArray.findIndex(x => x.id === data.id);
+    qArray[index].page = page;
+    await page.setDefaultNavigationTimeout(0);
+
+    var proxyUrl = getProxyUrl();
     const proxyAgent = new HttpsProxyAgent(proxyUrl);
+    
     var form_data = new FormData();
-    form_data.append('email', 'videki3368@idurse.com');
-    form_data.append('password', 'Abc123!!!');
+    form_data.append('email', data.Email);
+    form_data.append('password', data.Password);
+    
     var config = {
       method: 'POST',
       agent: proxyAgent,
@@ -94,103 +137,68 @@ async function testSession(reqData, res) {
       },
       body : form_data
     };
+
     let url = "https://api.droppp.io/v1/user/login";
     let resp = await fetch(url, config);
     let resp_data = await resp.json();
-    // console.log(resp_data);
-    await timer(2000);
+    
+    await timer(500);
+
     let access_token = resp_data.token.access_token;
     let refresh_token = resp_data.token.refresh_token;
     let access_expire = resp_data.token.expires_in;
     let refresh_expire = resp_data.token.refresh_token_expires_in;
-    let page_cookies = [
-      {
-        "name": "token",
-        "value": access_token,
-        "domain": "droppp.io",
-        "path": "/",
-        "expires": Date.now() + access_expire,
-        "size": 69,
-        "httpOnly": false,
-        "secure": false,
-        "session": false,
-        "priority": "Medium",
-        "sameParty": false,
-        "sourceScheme": "Secure",
-        "sourcePort": 443
-      },
-      {
-        "name": "refresh_token",
-        "value": refresh_token,
-        "domain": "droppp.io",
-        "path": "/",
-        "expires": Date.now() + refresh_expire,
-        "size": 77,
-        "httpOnly": false,
-        "secure": false,
-        "session": false,
-        "priority": "Medium",
-        "sameParty": false,
-        "sourceScheme": "Secure",
-        "sourcePort": 443
-      }
-    ];
 
-    await page.setRequestInterception(true);
-    await page.on('request', async (request) => {
-      await proxyRequest({
-        page,
-        proxyUrl: proxyUrl,
-        request,
-      });
-    });
-    // await page.setExtraHTTPHeaders({proxy_addr: proxyUrl, proxy_port: GEONODE_PORT.toString()});
-    let cookie_json = JSON.parse(JSON.stringify(page_cookies));
-    await page.setDefaultNavigationTimeout(0);
+    let page_cookies = createAccessTokenCookies(access_token, access_expire, refresh_token, refresh_expire);
+    
+    await useProxy(page, proxyUrl);
+    qArray[index].status = "Started Proxy Connection...";
+    let cookie_json = JSON.parse(page_cookies);
+    qArray[index].status = "Setting page cookies...";
     await page.setCookie(...cookie_json);
     await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36');
-    await timer(2000);
-    await page.goto(`https://droppp.io/inventory/`);
+  
+    qArray[index].status = "Entering the queue";
+    await page.goto(`https://droppp.io/reserve-drop/?drop_id=${product_id}`);
 
-    let bb = await puppeteer.launch({headless: false});
-    let [pp] = await bb.pages();
-    await pp.setCookie(...cookie_json);
-    await pp.goto(page.url());
-
-    //await page.waitForSelector('body');
-    await page.screenshot({path: `./${Math.random() % 30}.png`, fullPage: true})
-    // let product_id = 39;
-    console.log("Solving Captcha!");
+    qArray[index].status = "Looking for Captcha...";
+    await page.waitForSelector('iframe[src*="recaptcha/"]')
+    qArray[index].status = "Solving Captcha...";
     await page.solveRecaptchas();
-    console.log("\x1b[42m%s\x1b[0m", ` captcha solved!! 🎉`);
-    // await page.waitForNavigation();
-    console.log("Entered the Queue! Waiting for checkout URL....");
+    qArary[index].status = "Captcha Solved!! 🎉";
+    await page.waitForNavigation();
+    qArray[index].status = "Successfully entered the queue! Waiting for checkout URL...";
     await page.waitForNavigation();
     // This is where we will pring out the checkout link!
+    qArray[index].status = "🎉  CHECKOUT! 🎉";
+    let checkout_page_cookies = await page.cookies();
+    qArray[index].cookies = checkout_page_cookies;
   });
 
   cluster.on('taskerror', (error) => {
-    console.log("this is an error!");
     console.log(error);
   });
 
   cluster.on('queue', (data) => {
-
-    console.log("queued!");
-    // qArray.push({
-    //   "id": data.id,
-    //   "type": "create-session", "status": data.Status,
-    //   "info": {"email": data.Email, "password": data.Password}});
+    qArray.push({
+      "id": data.id,
+      "type": "create-session", "status": data.Status,
+      "info": {"email": data.Email, "password": data.Password}});
   });
 
-  let workers = reqData.workers;
-  for (let i = 0;i<workers;i++) {
-    await cluster.queue('https://google.com');
-  }
+  let workerCount = 0;
+  fs.createReadStream('./uploads/users.csv')
+  .pipe(csv())
+  .on('data', async function(row) {
+      cluster.queue({ "id": ++workerCount, "Email": row.Email, "Password": row.Password, "Status": "Worker Queued" })
+        .catch((err) => {
+          console.err("Error: with queuing task!");
+          console.err(err);
+        });
+    });
 
   await cluster.idle();
   await cluster.close();
-
 }
 
 // For Front end to update sessions view!
@@ -306,14 +314,15 @@ async function launchCheckoutPage(session) {
   });
     let [currPage] = await newBrowser.pages();
     await currPage.setDefaultNavigationTimeout(0);
-    await useProxy(currPage, "http://"+ foundPage.ip + ":9002"); // this doesnt work
+    let proxyUrl = getProxyUrl();
+    await useProxy(currPage, proxyUrl); // this doesnt work
     console.log("DONE");
-    await currPage.authenticate({username: "geonode_7Hbuw9KHL0", password: "fc96bf48-5382-4176-8e51-299191d4ff9d"});
+    // await currPage.authenticate({username: "geonode_7Hbuw9KHL0", password: "fc96bf48-5382-4176-8e51-299191d4ff9d"});
     console.log("AUTH");
     await currPage.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36');
     // console.log(foundPage.ip);
     await currPage.setCookie(...foundPage.cookies);
-    await currPage.goto("https://www.pornhub.com/");
+    await currPage.goto(foundPage.page.url());
   }
   return;
 }
