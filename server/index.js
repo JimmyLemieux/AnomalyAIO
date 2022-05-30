@@ -39,14 +39,15 @@ app.post('/setup', async (req, res) => {
   });
 
   let data = JSON.parse(req.body.data);
-  await bot.session(data);
+  // await bot.session(data);
+  await bot.test(data);
   res.send(JSON.stringify({status: "start"}));
 });
 
 app.get('/status', async (req, res) => {
   let sessions = await bot.getSessions();
   let newSessions = sessions.map(x => {
-    return {"id": x.id, "type": x.type, "status": x.status, "info": x.info}
+    return {"id": x.id, "type": x.type, "status": x.status, "info": x.info, "sort": x.sort}
   });
   res.send(JSON.stringify({sessions: newSessions}));
 });

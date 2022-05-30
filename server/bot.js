@@ -17,8 +17,9 @@ const { randomInt } = require('crypto');
 const {proxyRequest} = require('puppeteer-proxy');
 
 const timer = ms => new Promise(res => setTimeout(res, ms))
-const CLUSTER_TIMEOUT = 100000000 * 150;
+const CLUSTER_TIMEOUT = 1000000 * 150;
 const product_id = 41;
+const cookie_domain = ".droppp.io";
 
 module.exports = {
   session: BotSessions,
@@ -31,7 +32,7 @@ module.exports = {
 var qArray = [];
 
 function calculateConcurrency(threads) {
-  return !isNaN(data.threads) ? +threads : 1000;
+  return !isNaN(threads) ? +threads : 1000;
 }
 
 function getProxyUrl() {
@@ -43,12 +44,12 @@ function getProxyUrl() {
   return proxyUrl;
 }
 
-function createAccessTokenCookies(accessToken, accessExpire, refreshToken, refreshExpire) {
+function createAccessTokenCookies(accessToken, accessExpire, refreshToken, refreshExpire, cookieDomain) {
   return [
     {
       "name": "token",
       "value": accessToken,
-      "domain": "droppp.io",
+      "domain": cookieDomain,
       "path": "/",
       "expires": Date.now() + accessExpire,
       "size": 69,
@@ -63,7 +64,7 @@ function createAccessTokenCookies(accessToken, accessExpire, refreshToken, refre
     {
       "name": "refresh_token",
       "value": refreshToken,
-      "domain": "droppp.io",
+      "domain": cookieDomain,
       "path": "/",
       "expires": Date.now() + refreshExpire,
       "size": 77,
@@ -103,9 +104,14 @@ async function BotSessions(data) {
     puppeteerOptions: {
       headless: true,
       args: [
-        '--no-zygote', 
-        '--no-sandbox',
-        '--disable-setuid-sandbox'],
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-accelerated-2d-canvas",
+        "--no-first-run",
+        "--no-zygote",
+        "--disable-gpu",
+        "--disable-notifications"],
       },
     concurrency: Cluster.CONCURRENCY_PAGE,
     maxConcurrency: calculateConcurrency(data.threads),
@@ -149,27 +155,35 @@ async function BotSessions(data) {
     let access_expire = resp_data.token.expires_in;
     let refresh_expire = resp_data.token.refresh_token_expires_in;
 
-    let page_cookies = createAccessTokenCookies(access_token, access_expire, refresh_token, refresh_expire);
+    let page_cookies = createAccessTokenCookies(access_token, access_expire, refresh_token, refresh_expire, cookie_domain);
     
     await useProxy(page, proxyUrl);
+    qArray[index].sort = 1;
     qArray[index].status = "Started Proxy Connection...";
-    let cookie_json = JSON.parse(page_cookies);
+    let cookie_json = JSON.parse(JSON.stringify(page_cookies));
+    qArray[index].sort = 2;
     qArray[index].status = "Setting page cookies...";
     await page.setCookie(...cookie_json);
     await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36');
   
+    qArray[index].sort = 3;
     qArray[index].status = "Entering the queue";
     await page.goto(`https://droppp.io/reserve-drop/?drop_id=${product_id}`);
 
+    qArray[index].sort = 4;
     qArray[index].status = "Looking for Captcha...";
     await page.waitForSelector('iframe[src*="recaptcha/"]')
-    qArray[index].status = "Solving Captcha...";
+    qArray[index].sort = 5;
+    qArray[index].status = "Found Captcha attempting solve...";
     await page.solveRecaptchas();
+    qArray[index].sort = 6;
     qArary[index].status = "Captcha Solved!! 🎉";
     await page.waitForNavigation();
+    qArray[index].sort = 7;
     qArray[index].status = "Successfully entered the queue! Waiting for checkout URL...";
     await page.waitForNavigation();
     // This is where we will pring out the checkout link!
+    qArray[index].sort = 8;
     qArray[index].status = "🎉  CHECKOUT! 🎉";
     let checkout_page_cookies = await page.cookies();
     qArray[index].cookies = checkout_page_cookies;
@@ -183,13 +197,15 @@ async function BotSessions(data) {
     qArray.push({
       "id": data.id,
       "type": "create-session", "status": data.Status,
-      "info": {"email": data.Email, "password": data.Password}});
+      "info": {"email": data.Email, "password": data.Password},
+      "sort": 0});
   });
 
   let workerCount = 0;
   fs.createReadStream('./uploads/users.csv')
   .pipe(csv())
   .on('data', async function(row) {
+      console.log(row);
       cluster.queue({ "id": ++workerCount, "Email": row.Email, "Password": row.Password, "Status": "Worker Queued" })
         .catch((err) => {
           console.err("Error: with queuing task!");
@@ -206,8 +222,8 @@ async function returnSessions() {
   return qArray;
 }
 
-// HERE FOR NOW
-async function testingLaunch(data, res) {
+// TESTING!
+async function testingLaunch(data) {
   puppeteer.use(
     RecaptchaPlugin({
       provider: {
@@ -216,14 +232,6 @@ async function testingLaunch(data, res) {
       },
       visualFeedback: true}),
     Stealth());
-
-  let proxyUrl = getProxyUrl();
-//  const proxyAgent = new HttpsProxyAgent(proxyUrl);
-  let concurrency = 1000;
-
-  if (!isNaN(data.threads)) {
-    concurrency = +data.threads;
-  }
   
   const cluster = await Cluster.launch({
     puppeteer,
@@ -239,9 +247,9 @@ async function testingLaunch(data, res) {
         "--disable-gpu",
         "--disable-notifications"]},
     concurrency: Cluster.CONCURRENCY_PAGE,
-    maxConcurrency: concurrency,
+    maxConcurrency: calculateConcurrency(data.threads),
     monitor: false,
-    timeout: 150000 * 1000
+    timeout: CLUSTER_TIMEOUT
   });
 
   // Keep track of the sessions that are in q and running!
@@ -251,23 +259,18 @@ async function testingLaunch(data, res) {
     qArray[index].page = page;
     await page.setDefaultNavigationTimeout(0);
 
-    // Proxy info!
-    await useProxy(page, proxyUrl);
-    console.log("FINE");
-    const ipJSON = await useProxy.lookup(page);
-    console.log(ipJSON);
     await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36');
-    console.log("proxy");
-    await page.goto("https://www.google.com/");
-    qArray[index].status = "ON GOOGLE!";
-    qArray[index].ip = ipJSON.ip;
-
+    await page.goto("https://droppp.io/");
+    qArray[index].status = "ON DROPPP!";
     await timer(2000);
+    qArray[index].sort = 1;
     qArray[index].status = "Almost done!";
-    // await page.close();
+    await timer(1000);
+    qArray[index].sort = 2;
     qArray[index].status = "🎉  CHECKOUT! 🎉";
     const page_cookies = await page.cookies();
-    qArray[index].cookies = page_cookies;
+
+    qArray[index].cookies = createAccessTokenCookies('James', 10, 'Lemieux', 10, cookie_domain);
 
   });
   
@@ -275,7 +278,8 @@ async function testingLaunch(data, res) {
     qArray.push({
       "id": data.id,
       "type": "create-session", "status": data.Status,
-      "info": {"email": data.Email, "password": data.Password}});
+      "info": {"email": data.Email, "password": data.Password},
+      "sort": 0});
   });
 
   cluster.on('taskerror', (err, data, willRetry) => {
@@ -288,8 +292,8 @@ async function testingLaunch(data, res) {
   .on('data', function (row) {
       cluster.queue({ "id": ++workerCount, "Email": row.Email, "Password": row.Password, "Status": "Worker Queued" })
         .catch((err) => {
-          console.log("Error: with queuing task!");
-          console.log(err);
+          console.err("Error: with queuing task!");
+          console.err(err);
         });
     });
 
@@ -314,13 +318,9 @@ async function launchCheckoutPage(session) {
   });
     let [currPage] = await newBrowser.pages();
     await currPage.setDefaultNavigationTimeout(0);
-    let proxyUrl = getProxyUrl();
-    await useProxy(currPage, proxyUrl); // this doesnt work
-    console.log("DONE");
-    // await currPage.authenticate({username: "geonode_7Hbuw9KHL0", password: "fc96bf48-5382-4176-8e51-299191d4ff9d"});
-    console.log("AUTH");
+    // let proxyUrl = getProxyUrl();
+    // await useProxy(currPage, proxyUrl);
     await currPage.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36');
-    // console.log(foundPage.ip);
     await currPage.setCookie(...foundPage.cookies);
     await currPage.goto(foundPage.page.url());
   }

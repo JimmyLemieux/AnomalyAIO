@@ -51,9 +51,8 @@ export class SetupComponent implements OnInit {
     this.formData.append('data', postJson);    
     if (this.formData.has('file')) {
       this._http.post('http://localhost:3000/setup', this.formData).subscribe((data) => {
-        console.log(this.setupComplete);
-        console.log(data);
-        this.setupForm.reset();
+        // this.setupForm.reset();
+        console.log("Called Setup!");
       });
     }
   }

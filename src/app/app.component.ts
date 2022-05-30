@@ -20,6 +20,7 @@ export class AppComponent implements OnInit {
   ngOnInit(): void {
     interval(1000).subscribe(() => {
       this._http.get('http://localhost:3000/status').subscribe(data => {
+        console.log(data);
         this._anomalyService.updateSessionsView.next((data as any).sessions);
       });
     });

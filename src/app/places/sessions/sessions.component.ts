@@ -25,8 +25,8 @@ export class SessionsComponent implements OnInit {
       this.sessions_running = (data as Array<any>).length;
       (data as Array<any>).map((_x: any) => {
         if (this.sessionHash.get(_x.id) === undefined) {
-          let obj = new Session(_x.id, _x.status, false, false);
-          this.sessions.push(obj)
+          let obj = new Session(_x.id, _x.status, false, false, _x.sort);
+          this.sessions.push(obj);
           this.sessionHash.set(_x.id, obj);
         } else {
           console.log("here!");
@@ -41,6 +41,7 @@ export class SessionsComponent implements OnInit {
           }
         }
       });
+      this.sessions = this.sessions.sort((a, b) => b.sort - a.sort);
     });
     this.sessions_queued = this.sessions.length;
   }
