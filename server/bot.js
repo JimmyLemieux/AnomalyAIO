@@ -271,6 +271,9 @@ async function testingLaunch(data) {
 
   await cluster.task(async ({page, data}) => {
     let index = await qArray.findIndex(x => x.id === data.id);
+    await useProxy(page, getProxyUrl());
+    let ip = await useProxy.lookup(page);
+    console.log(ip);
     qArray[index].status = "Attempting Login...";
     console.log(data);
     let loginCookies = await dropppLoginCookies(data.Email, data.Password);
@@ -285,7 +288,7 @@ async function testingLaunch(data) {
 
     await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36');
     qArray[index].status = "Setting Proxy...";
-    await useProxy(page, getProxyUrl());
+
     await page.goto("https://droppp.io/inventory/");
     qArray[index].status = "ON DROPPP!";
     await timer(2000);
@@ -297,7 +300,7 @@ async function testingLaunch(data) {
     const page_cookies = await page.cookies();
 
     qArray[index].cookies = page_cookies;
-
+    return 0;
   });
   
   cluster.on('queue', (data) => {
@@ -318,7 +321,7 @@ async function testingLaunch(data) {
   .pipe(csv())
   .on('data', async function (row) {
       console.log(row.Email + " " + row.Password);
-      for (let i = 0;i<10;i++) {
+      for (let i = 0;i<2;i++) {
         await cluster.queue({ "id": ++workerCount, "Email": row.Email, "Password": row.Password, "Status": "Worker Queued"})
           .catch((err) => {
             console.err("Error: with queuing task!");
