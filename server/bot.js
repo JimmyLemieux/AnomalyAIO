@@ -240,7 +240,7 @@ async function BotSessions(data) {
 
     qArray[index].sort = 4;
     qArray[index].status = "Looking for Captcha...";
-    await page.waitForSelector('iframe[src*="recaptcha/"]', {timeout: 200000});
+    await page.waitForSelector('iframe[src*="recaptcha/"]', {timeout: 2000000});
     qArray[index].sort = 5;
     qArray[index].status = "Found Captcha attempting solve...";
     await page.solveRecaptchas();
@@ -392,9 +392,6 @@ async function launchCheckoutPage(session) {
     await currPage.setDefaultNavigationTimeout(0);
     await currPage.setRequestInterception(true);
     currPage.on('request', async request => {
-      let logger = fs.createWriteStream('./request_log.txt', {
-        flags: 'a'
-      });
       fs.appendFileSync('./request_log.txt',  `${request.url()}\r\n`);
       fs.appendFileSync('./request_log.txt',  `${request.method()}\r\n`);
       fs.appendFileSync('./request_log.txt',  `${JSON.stringify(request.headers())}\r\n`);
