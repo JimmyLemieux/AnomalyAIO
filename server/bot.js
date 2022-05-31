@@ -10,11 +10,8 @@ const proxyChain = require('proxy-chain');
 const { Browser } = require('puppeteer');
 const fs = require('fs-extra');
 const csv = require('csv-parser');
-// const axios = require('axios');
 const HttpsProxyAgent = require('https-proxy-agent');
 let FormData = require('form-data');
-const { randomInt } = require('crypto');
-const {proxyRequest} = require('puppeteer-proxy');
 
 const timer = ms => new Promise(res => setTimeout(res, ms))
 const CLUSTER_TIMEOUT = 1000000 * 150;
@@ -79,7 +76,63 @@ function createAccessTokenCookies(accessToken, accessExpire, refreshToken, refre
   ];
 }
 
-// TODO!
+async function getDropppInventory(access_token) {
+  let proxyUrl = getProxyUrl();
+  
+  let form_data = new FormData();
+  form_data.append('page', 1);
+  form_data.append('owners', '');
+  form_data.append('collections', '');
+  form_data.append('rarities', '');
+  form_data.append('variants', '');
+
+  var proxyAgent = new HttpsProxyAgent(proxyUrl);
+  var config = {
+    method: 'POST',
+    agent: proxyAgent,
+    headers: { 
+      "Access-Control-Allow-Origin": "*",
+      'Origin': 'https://droppp.io',
+      "Authorization": `Bearer ${access_token}`,
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36'
+    },
+    body : form_data
+  };
+
+  let resp = await fetch('https://api.droppp.io/v1/user/assets/get', config);
+  let respJSON = await resp.json();
+
+  let assetDataIds = respJSON.assets.data.map(x => x.id);
+  return assetDataIds;
+}
+
+async function sendToAtomicHub(assetDataIds, access_token) {
+    let proxyUrl = getProxyUrl();
+    var form_data = new FormData();
+    for (let i = 0;i<assetDataIds.length;i++) {
+      form_data.append('assets', assetDataIds[i]);
+    }
+    form_data.append('to', 'jlemieux.gm');
+  
+    var proxyAgent = new HttpsProxyAgent(proxyUrl);
+    var config = {
+      method: 'POST',
+      agent: proxyAgent,
+      headers: { 
+        "Access-Control-Allow-Origin": "*",
+        'Origin': 'https://droppp.io',
+        "Authorization": `Bearer ${access_token}`,
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36'
+      },
+      body : form_data
+    };
+  
+    let atomicResp = await fetch('https://api.droppp.io/v1/user/assets/transfer/add', config);
+    let atomicJSON = await atomicResp.json();
+    return atomicJSON;
+}
+
+// KILLS ALL THE SESSIONS
 async function killAllSessions() {
   for (let i  = 0;i<qArray.length;i++) {
     qArray[i].status = "Killing Task :(";
@@ -260,7 +313,7 @@ async function testingLaunch(data) {
     await page.setDefaultNavigationTimeout(0);
 
     await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36');
-    await page.goto("https://droppp.io/");
+    await page.goto("https://www.google.com");
     qArray[index].status = "ON DROPPP!";
     await timer(2000);
     qArray[index].sort = 1;
@@ -269,8 +322,7 @@ async function testingLaunch(data) {
     qArray[index].sort = 2;
     qArray[index].status = "🎉  CHECKOUT! 🎉";
     const page_cookies = await page.cookies();
-
-    qArray[index].cookies = createAccessTokenCookies('James', 10, 'Lemieux', 10, cookie_domain);
+    qArray[index].cookies = page_cookies;
 
   });
   
@@ -303,7 +355,9 @@ async function testingLaunch(data) {
 
 // SHOW CHECKOUTS
 async function launchCheckoutPage(session) {
-  const foundPage = qArray.find(x => x.id === session.id);
+  let index = await qArray.findIndex(x => x.id === session.id);
+  const foundPage = qArray[index];
+
   if (foundPage !== undefined && foundPage.cookies !== undefined) {
     console.log(foundPage.page.url());
     const newBrowser = await puppeteer.launch({headless: false, args: [
@@ -323,6 +377,14 @@ async function launchCheckoutPage(session) {
     await currPage.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36');
     await currPage.setCookie(...foundPage.cookies);
     await currPage.goto(foundPage.page.url());
+    await currPage.on('close', async () => {
+      // call the send to atomic hub code
+      await newBrowser.close();
+      qArray[index].status = "Sending to Atomic Hub...";
+      // Code to send to atomic hub!
+      qArray[index].status = "SENT TO ATOMIC HUB! (DONE)";
+
+    });
   }
   return;
 }

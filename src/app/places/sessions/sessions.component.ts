@@ -29,12 +29,12 @@ export class SessionsComponent implements OnInit {
           this.sessions.push(obj);
           this.sessionHash.set(_x.id, obj);
         } else {
-          console.log("here!");
           let item = this.sessions.find(x => x.id === _x.id);
           if (item !== undefined) {
             this.sessions.find(x => x.id === _x.id)!.status = _x.status;
           }
-          if ((_x.status as string).includes("CHECKOUT") && item !== undefined) {
+          if (((_x.status as string).includes("CHECKOUT") || (_x.status as string).includes("DONE"))
+          && item !== undefined) {
             this.sessions.find(x => x.id === _x.id)!.shouldCheckout = true;
             this._anomalyService.sendCheckout.next(item);
             this.sessions = this.sessions.filter(x => x.id !== _x.id);

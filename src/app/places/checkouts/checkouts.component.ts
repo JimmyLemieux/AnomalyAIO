@@ -23,11 +23,25 @@ export class CheckoutsComponent implements OnInit {
         this.sessions.push(cast);
         this.sessionHash.set(cast.id, cast);
       }
-    })
+    });
+
+    this._anomalyService.updateCheckoutView.subscribe(data => {
+      (data as Array<any>).map((_x: any) => {
+        if (this.sessionHash.has(_x.id)) {
+          if (_x.status.includes("DONE")) {
+            this.sessions.find(x => x.id === _x.id)!.didOpenCheckout = true;
+          }
+          let item = this.sessions.find(x => x.id === _x.id);
+          if (item !== undefined) {
+            this.sessions.find(x => x.id === _x.id)!.status = _x.status;
+          }
+        }
+      });
+    });
   }
 
   openCheckout(session: Session): void {
-    session.didOpenCheckout = true;
+    // session.didOpenCheckout = true;
     this._http.post("http://localhost:3000/checkout", {session: session}).subscribe(data => {
       console.log(data);
     });

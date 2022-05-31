@@ -22,6 +22,7 @@ export class AppComponent implements OnInit {
       this._http.get('http://localhost:3000/status').subscribe(data => {
         console.log(data);
         this._anomalyService.updateSessionsView.next((data as any).sessions);
+        this._anomalyService.updateCheckoutView.next((data as any).sessions);
       });
     });
     // console.log(window.location.href);
