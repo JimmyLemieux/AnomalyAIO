@@ -1,0 +1,88 @@
+https://api.droppp.io/v1/user/add
+
+Payload:
+{
+	email: string,
+	password: string,
+}
+
+https://api.droppp.io/v1/user/email/verify/set
+{
+	code: number
+}
+
+
+Check if wallet is available
+https://api.droppp.io/v1/user/assets/transfer/check
+PayLoad:
+(FormData) to: jlemieux.gm
+
+Request Headers:
+:authority: api.droppp.io
+:method: POST
+:path: /v1/user/assets/transfer/check
+:scheme: https
+accept: application/json, text/plain, */*
+accept-encoding: gzip, deflate, br
+accept-language: en-US,en;q=0.9
+authorization: Bearer JafV7qXwhUlZ7nkPFeDBZiG9cRrEFnvGapKEsPAQ5Fl8b4v5kNG2CGq7blUaT7ut
+cache-control: no-cache
+content-length: 14
+content-type: application/x-www-form-urlencoded;charset=UTF-8
+origin: https://droppp.io
+pragma: no-cache
+referer: https://droppp.io/
+sec-ch-ua: " Not A;Brand";v="99", "Chromium";v="101", "Google Chrome";v="101"
+sec-ch-ua-mobile: ?0
+sec-ch-ua-platform: "macOS"
+sec-fetch-dest: empty
+sec-fetch-mode: cors
+sec-fetch-site: same-site
+user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36
+------
+
+Transfer to wallet:
+https://api.droppp.io/v1/user/assets/transfer/add
+Payload: (form data)
+assets: 3904629,3886361 (Array of asset ids...)
+to: jlemieux.gm
+
+Request Headers:
+
+:authority: api.droppp.io
+:method: POST
+:path: /v1/user/assets/transfer/add
+:scheme: https
+accept: application/json, text/plain, */*
+accept-encoding: gzip, deflate, br
+accept-language: en-US,en;q=0.9
+authorization: Bearer JafV7qXwhUlZ7nkPFeDBZiG9cRrEFnvGapKEsPAQ5Fl8b4v5kNG2CGq7blUaT7ut
+cache-control: no-cache
+content-length: 39
+content-type: application/x-www-form-urlencoded;charset=UTF-8
+origin: https://droppp.io
+pragma: no-cache
+referer: https://droppp.io/
+sec-ch-ua: " Not A;Brand";v="99", "Chromium";v="101", "Google Chrome";v="101"
+sec-ch-ua-mobile: ?0
+sec-ch-ua-platform: "macOS"
+sec-fetch-dest: empty
+sec-fetch-mode: cors
+sec-fetch-site: same-site
+user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36
+
+------
+
+Get Asset Ids
+https://api.droppp.io/v1/user/assets/get
+payload:
+page: 1
+owners: 
+collections: 
+rarities: 
+variants: 
+
+response:
+assets.data.map(x => x.id);
+
+Bearer token auth in request header

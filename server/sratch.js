@@ -145,6 +145,71 @@ async function gmails() {
     console.log(`Created Dropp Account! Email ${email} Password: ${password}`);
   }
 
+});
+
+// Send to atomic hub test!
+
+(async () => {
+  let username = 'geonode_7Hbuw9KHL0-country-US-autoReplace-True';
+  let password_node = 'fc96bf48-5382-4176-8e51-299191d4ff9d';
+  let GEONODE_DNS = 'premium-residential.geonode.com';
+  let GEONODE_PORT = 9005;
+  var proxyUrl = "http://" + username + ":" + password_node + "@" + GEONODE_DNS + ":" + GEONODE_PORT;
+
+  var form_data = new FormData();
+
+  form_data.append('page', 1);
+  form_data.append('owners', '');
+  form_data.append('collections', '');
+  form_data.append('rarities', '');
+  form_data.append('variants', '');
+  
+  console.log("Attempting atomic hub send!");
+
+  var proxyAgent = new HttpsProxyAgent(proxyUrl);
+  var config = {
+    method: 'POST',
+    agent: proxyAgent,
+    headers: { 
+      "Access-Control-Allow-Origin": "*",
+      'Origin': 'https://droppp.io',
+      "Authorization": `Bearer JafV7qXwhUlZ7nkPFeDBZiG9cRrEFnvGapKEsPAQ5Fl8b4v5kNG2CGq7blUaT7ut`,
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36'
+    },
+    body : form_data
+  };
+
+  let resp = await fetch('https://api.droppp.io/v1/user/assets/get', config);
+  let respJSON = await resp.json();
+
+  let assetDataIds = respJSON.assets.data.map(x => x.id);
+  console.log(assetDataIds);
+
+  // Sending to atomic hub!
+  var form_data = new FormData();
+
+  for (let i = 0;i<assetDataIds.length;i++) {
+    form_data.append('assets', assetDataIds[i]);
+  }
+  form_data.append('to', 'jlemieux.gm');
+
+  var proxyAgent = new HttpsProxyAgent(proxyUrl);
+  var config = {
+    method: 'POST',
+    agent: proxyAgent,
+    headers: { 
+      "Access-Control-Allow-Origin": "*",
+      'Origin': 'https://droppp.io',
+      "Authorization": `Bearer JafV7qXwhUlZ7nkPFeDBZiG9cRrEFnvGapKEsPAQ5Fl8b4v5kNG2CGq7blUaT7ut`,
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36'
+    },
+    body : form_data
+  };
+
+  let atomicResp = await fetch('https://api.droppp.io/v1/user/assets/transfer/add', config);
+  let atomicJSON = await atomicResp.json();
+  console.log(atomicJSON);
+
 })();
 
 // Another captcha test!
