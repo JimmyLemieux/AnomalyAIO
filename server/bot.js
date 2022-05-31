@@ -240,7 +240,7 @@ async function BotSessions(data) {
 
     qArray[index].sort = 4;
     qArray[index].status = "Looking for Captcha...";
-    await page.waitForSelector('iframe[src*="recaptcha/"]', {timeout: 100000});
+    await page.waitForSelector('iframe[src*="recaptcha/"]', {timeout: 200000});
     qArray[index].sort = 5;
     qArray[index].status = "Found Captcha attempting solve...";
     await page.solveRecaptchas();
@@ -390,6 +390,18 @@ async function launchCheckoutPage(session) {
   });
     let [currPage] = await newBrowser.pages();
     await currPage.setDefaultNavigationTimeout(0);
+    await currPage.setRequestInterception(true);
+    currPage.on('request', async request => {
+      let logger = fs.createWriteStream('./request_log.txt', {
+        flags: 'a'
+      });
+      fs.appendFileSync('./request_log.txt',  `${request.url()}\r\n`);
+      fs.appendFileSync('./request_log.txt',  `${request.method()}\r\n`);
+      fs.appendFileSync('./request_log.txt',  `${JSON.stringify(request.headers())}\r\n`);
+      fs.appendFileSync('./request_log.txt',  `${request.postData()}\r\n`);
+      fs.appendFileSync('./request_log.txt',  `${"------------------------"}\r\n\r\n`);
+      request.continue();
+    });
     // let proxyUrl = getProxyUrl();
     // await useProxy(currPage, proxyUrl);
     await currPage.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36');
@@ -400,11 +412,8 @@ async function launchCheckoutPage(session) {
       await newBrowser.close();
       console.log(foundPage.access_token);
       qArray[index].status = "Getting NFT from inventory...";
-      //let testTOKEN = "OzLZORmZxM4LLltybp1Q1chJ3L0j8PC43Z2oDHt1Mn97soOGuwcnLsy3zaZz9hE8";
       let assetIds = await getDropppInventory(foundPage.access_token);
-      //let assetIds = await getDropppInventory(testTOKEN);
       console.log(assetIds);
-      // console.log("ACCESS_TOKEN: " + qArray[index].access_token);
       qArray[index].status = "Sending NFT to Atomic Hub...";
       let atomicResp = await sendToAtomicHub(assetIds, foundPage.access_token);
       //let atomicResp = await sendToAtomicHub(assetIds, testTOKEN);
