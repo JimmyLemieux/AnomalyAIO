@@ -142,9 +142,16 @@ async function getDropppInventory(access_token) {
 async function sendToAtomicHub(assetDataIds, access_token) {
     let proxyUrl = getProxyUrl();
     var form_data = new FormData();
+    
+    let assetString = "";
     for (let i = 0;i<assetDataIds.length;i++) {
-      form_data.append('assets', assetDataIds[i]);
+      assetString += (assetDataIds[i]);
+      if (i < assetDataIds.length-1) {
+        assetString += ",";
+      }
     }
+    
+    form_data.append('assets', assetString);
     form_data.append('to', 'jlemieux.gm');
   
     var proxyAgent = new HttpsProxyAgent(proxyUrl);
@@ -206,7 +213,6 @@ async function BotSessions(data) {
   });
 
   cluster.task(async ({page, data}) => {
-    
     let index = await qArray.findIndex(x => x.id === data.id);
     qArray[index].page = page;
     await page.setDefaultNavigationTimeout(0);
@@ -244,12 +250,14 @@ async function BotSessions(data) {
     qArray[index].sort = 7;
     qArray[index].status = "Successfully entered the queue! Waiting for checkout URL...";
     await page.waitForNavigation();
+    
     // This is where we will pring out the checkout link!
     qArray[index].sort = 8;
     qArray[index].status = "🎉  CHECKOUT! 🎉";
 
     let checkout_page_cookies = await page.cookies();
     qArray[index].cookies = checkout_page_cookies;
+    qArray[index].page = page;
   });
 
   cluster.on('taskerror', (error) => {
@@ -392,10 +400,15 @@ async function launchCheckoutPage(session) {
       await newBrowser.close();
       console.log(foundPage.access_token);
       qArray[index].status = "Getting NFT from inventory...";
-      let assetIds = await getDropppInventory(foundPage.access_token);
+      let testTOKEN = "OzLZORmZxM4LLltybp1Q1chJ3L0j8PC43Z2oDHt1Mn97soOGuwcnLsy3zaZz9hE8";
+      //let assetIds = await getDropppInventory(foundPage.access_token);
+      let assetIds = await getDropppInventory(testTOKEN);
+      console.log(assetIds);
       // console.log("ACCESS_TOKEN: " + qArray[index].access_token);
       qArray[index].status = "Sending NFT to Atomic Hub...";
-      await sendToAtomicHub(assetIds, foundPage.access_token);
+      // await sendToAtomicHub(assetIds, foundPage.access_token);
+      let atomicResp = await sendToAtomicHub(assetIds, testTOKEN);
+      console.log(atomicResp);
       // Code to send to atomic hub!
       qArray[index].status = "SENT TO ATOMIC HUB! (DONE)";
 
