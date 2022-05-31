@@ -250,7 +250,7 @@ async function BotSessions(data) {
     qArray[index].sort = 7;
     qArray[index].status = "Successfully entered the queue! Waiting for checkout URL...";
     await page.waitForNavigation();
-    
+
     // This is where we will pring out the checkout link!
     qArray[index].sort = 8;
     qArray[index].status = "🎉  CHECKOUT! 🎉";
@@ -400,14 +400,14 @@ async function launchCheckoutPage(session) {
       await newBrowser.close();
       console.log(foundPage.access_token);
       qArray[index].status = "Getting NFT from inventory...";
-      let testTOKEN = "OzLZORmZxM4LLltybp1Q1chJ3L0j8PC43Z2oDHt1Mn97soOGuwcnLsy3zaZz9hE8";
-      //let assetIds = await getDropppInventory(foundPage.access_token);
-      let assetIds = await getDropppInventory(testTOKEN);
+      //let testTOKEN = "OzLZORmZxM4LLltybp1Q1chJ3L0j8PC43Z2oDHt1Mn97soOGuwcnLsy3zaZz9hE8";
+      let assetIds = await getDropppInventory(foundPage.access_token);
+      //let assetIds = await getDropppInventory(testTOKEN);
       console.log(assetIds);
       // console.log("ACCESS_TOKEN: " + qArray[index].access_token);
       qArray[index].status = "Sending NFT to Atomic Hub...";
-      // await sendToAtomicHub(assetIds, foundPage.access_token);
-      let atomicResp = await sendToAtomicHub(assetIds, testTOKEN);
+      let atomicResp = await sendToAtomicHub(assetIds, foundPage.access_token);
+      //let atomicResp = await sendToAtomicHub(assetIds, testTOKEN);
       console.log(atomicResp);
       // Code to send to atomic hub!
       qArray[index].status = "SENT TO ATOMIC HUB! (DONE)";
