@@ -32,6 +32,39 @@ function calculateConcurrency(threads) {
   return !isNaN(threads) ? +threads : 1000;
 }
 
+async function dropppLoginTokens(email, password) {
+  var proxyUrl = getProxyUrl();
+  const proxyAgent = new HttpsProxyAgent(proxyUrl);
+  
+  var form_data = new FormData();
+  form_data.append('email', email);
+  form_data.append('password', password);
+  
+  var config = {
+    method: 'POST',
+    agent: proxyAgent,
+    headers: { 
+      ...form_data.getHeaders(),
+      "Access-Control-Allow-Origin": "*",
+      'Origin': 'https://droppp.io',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36'
+    },
+    body : form_data
+  };
+
+  let url = "https://api.droppp.io/v1/user/login";
+  let resp = await fetch(url, config);
+  let resp_data = await resp.json();
+  
+  await timer(500);
+
+  let access_token = resp_data.token.access_token;
+  let refresh_token = resp_data.token.refresh_token;
+  let access_expire = resp_data.token.expires_in;
+  let refresh_expire = resp_data.token.refresh_token_expires_in;
+  return [access_token, access_expire, refresh_token, refresh_expire];;
+}
+
 function getProxyUrl() {
   var username = 'geonode_7Hbuw9KHL0-country-US-autoReplace-True';
   var password = 'fc96bf48-5382-4176-8e51-299191d4ff9d';
@@ -177,47 +210,23 @@ async function BotSessions(data) {
     let index = await qArray.findIndex(x => x.id === data.id);
     qArray[index].page = page;
     await page.setDefaultNavigationTimeout(0);
-
-    var proxyUrl = getProxyUrl();
-    const proxyAgent = new HttpsProxyAgent(proxyUrl);
+    let loginTokens = await dropppLoginTokens(data.Email, data.Password);
+    let page_cookies = createAccessTokenCookies(loginTokens[0], loginTokens[1], loginTokens[2], loginTokens[3], "droppp.io");
+    let loginCookiesJSON = JSON.parse(JSON.stringify(page_cookies));
     
-    var form_data = new FormData();
-    form_data.append('email', data.Email);
-    form_data.append('password', data.Password);
-    
-    var config = {
-      method: 'POST',
-      agent: proxyAgent,
-      headers: { 
-        ...form_data.getHeaders(),
-        "Access-Control-Allow-Origin": "*",
-        'Origin': 'https://droppp.io',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36'
-      },
-      body : form_data
-    };
+    qArray[index].access_token = loginTokens[0];
+    qArray[index].sort = -1;
+    qArray[index].status = "Logged In!";
 
-    let url = "https://api.droppp.io/v1/user/login";
-    let resp = await fetch(url, config);
-    let resp_data = await resp.json();
-    
-    await timer(500);
 
-    let access_token = resp_data.token.access_token;
-    let refresh_token = resp_data.token.refresh_token;
-    let access_expire = resp_data.token.expires_in;
-    let refresh_expire = resp_data.token.refresh_token_expires_in;
-
-    let page_cookies = createAccessTokenCookies(access_token, access_expire, refresh_token, refresh_expire, cookie_domain);
+    qArray[index].sort = 0;
+    qArray[index].status = "Setting Login Cookies...";
+    await page.setCookie(...loginCookiesJSON);
     
-    await useProxy(page, proxyUrl);
+    await useProxy(page, getProxyUrl());
     qArray[index].sort = 1;
     qArray[index].status = "Started Proxy Connection...";
-    let cookie_json = JSON.parse(JSON.stringify(page_cookies));
-    qArray[index].sort = 2;
-    qArray[index].status = "Setting page cookies...";
-    await page.setCookie(...cookie_json);
-    await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3738.0 Safari/537.36');
+    
   
     qArray[index].sort = 3;
     qArray[index].status = "Entering the queue";
@@ -225,7 +234,7 @@ async function BotSessions(data) {
 
     qArray[index].sort = 4;
     qArray[index].status = "Looking for Captcha...";
-    await page.waitForSelector('iframe[src*="recaptcha/"]')
+    await page.waitForSelector('iframe[src*="recaptcha/"]', {timeout: 100000});
     qArray[index].sort = 5;
     qArray[index].status = "Found Captcha attempting solve...";
     await page.solveRecaptchas();
@@ -238,6 +247,7 @@ async function BotSessions(data) {
     // This is where we will pring out the checkout link!
     qArray[index].sort = 8;
     qArray[index].status = "🎉  CHECKOUT! 🎉";
+
     let checkout_page_cookies = await page.cookies();
     qArray[index].cookies = checkout_page_cookies;
   });
@@ -380,7 +390,12 @@ async function launchCheckoutPage(session) {
     await currPage.on('close', async () => {
       // call the send to atomic hub code
       await newBrowser.close();
-      qArray[index].status = "Sending to Atomic Hub...";
+      console.log(foundPage.access_token);
+      qArray[index].status = "Getting NFT from inventory...";
+      let assetIds = await getDropppInventory(foundPage.access_token);
+      // console.log("ACCESS_TOKEN: " + qArray[index].access_token);
+      qArray[index].status = "Sending NFT to Atomic Hub...";
+      await sendToAtomicHub(assetIds, foundPage.access_token);
       // Code to send to atomic hub!
       qArray[index].status = "SENT TO ATOMIC HUB! (DONE)";
 

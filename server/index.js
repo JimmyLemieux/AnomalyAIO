@@ -39,8 +39,8 @@ app.post('/setup', async (req, res) => {
   });
 
   let data = JSON.parse(req.body.data);
-  // await bot.session(data);
-  await bot.test(data);
+  await bot.session(data);
+  //await bot.test(data);
   res.send(JSON.stringify({status: "start"}));
 });
 
