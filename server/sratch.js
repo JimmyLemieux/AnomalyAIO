@@ -150,7 +150,7 @@ async function gmails() {
   
       console.log("EMAIL VERIFIED!");
       await browser.close();
-      fs.appendFileSync('./emails.txt',  `${email},${password}\r\n`);
+      fs.appendFileSync('./emails.txt',  `${email}\r\n`);
       console.log(`Created Dropp Account! Email ${email} Password: ${password}`);
       await timer(60000);
 
@@ -159,7 +159,7 @@ async function gmails() {
     }
   }
 
-});
+})();
 
 
 // Another captcha test!
@@ -191,4 +191,4 @@ async function gmails() {
     // console.log("Found the Captcha");
     // await page.solveRecaptchas();
     // console.log("Solved Captcha");
-})();
+});
